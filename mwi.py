@@ -22,7 +22,8 @@ def cnot_test(quantity, flip):
     qc.measure(qB, cB)
     return qc
 
-def make_circuit(flip=True, quantum_control=False, simplify=False, extra_measure=False):
+def make_circuit(quantum_control=False, simplify=False,
+        extra_measure=False, cnot_count=1):
     qA = QuantumRegister(1)
     cA0 = ClassicalRegister(1)
     qB = QuantumRegister(1)
@@ -38,8 +39,8 @@ def make_circuit(flip=True, quantum_control=False, simplify=False, extra_measure
     qc.h(qA[0])
     qc.barrier()
     qc.measure(qA, cA0)
-    if flip:
-        qc.barrier()
+    qc.barrier()
+    for i in range(0, cnot_count):
         if quantum_control:
             qc.cx(qA[0], qB[0])
             if m:
@@ -48,26 +49,6 @@ def make_circuit(flip=True, quantum_control=False, simplify=False, extra_measure
         else:
             qc.x(qB[0]).c_if(cA, 1)
         qc.barrier()
-    else:
-        if quantum_control:
-            if not simplify:
-                qc.barrier()
-                qc.cx(qA[0], qB[0])
-                qc.barrier()
-                if m:
-                    qc.measure(qA, cA1)
-                    qc.barrier()
-                qc.cx(qA[0], qB[0])
-                qc.barrier()
-                if m:
-                    qc.measure(qA, cA2)
-                    qc.barrier()
-            else:
-                qc.barrier()
-        else:
-            qc.barrier()
-            qc.iden(qB[0]).c_if(cA, 1)
-            qc.barrier()
     qc.measure(qB, cB)
     return qc
 
@@ -77,15 +58,17 @@ if sim:
 else:
     backend = IBMQ.get_backend('ibmqx4')
 
-#circuit = make_circuit(flip=True, quantum_control=True, simplify=False, extra_measure=True)
-circuit = cnot_test(2, True)
-print("Running circuit:")
-print(circuit.draw('text'))
-print("for", shots, "shots on backend", backend, "with result:");
+for count in range(0, 11):
+    circuit = make_circuit(quantum_control=True, simplify=False,
+            extra_measure=False, cnot_count=count)
+    #circuit = cnot_test(2, True)
+    print("Running circuit:")
+    print(circuit.draw('text'))
+    print("for", shots, "shots on backend", backend, "with result:");
 
-job = qiskit.execute(circuit, backend=backend, shots=shots)
+    job = qiskit.execute(circuit, backend=backend, shots=shots)
 
-result = job.result()
+    result = job.result()
 
-print(result.get_counts(circuit))
-print("\n")
+    print(result.get_counts(circuit))
+    print("\n")
