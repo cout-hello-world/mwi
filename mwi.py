@@ -23,7 +23,7 @@ def cnot_test(quantity, flip):
     return qc
 
 def make_circuit(quantum_control=False, simplify=False,
-        extra_measure=False, cnot_count=1):
+        extra_measure=False, cnot_count=1, initial_hadamard=True):
     qA = QuantumRegister(1)
     cA0 = ClassicalRegister(1)
     qB = QuantumRegister(1)
@@ -36,8 +36,9 @@ def make_circuit(quantum_control=False, simplify=False,
         cA2 = ClassicalRegister(1)
         qc = QuantumCircuit(qA, qB, cA0, cA1, cA2, cB)
 
-    qc.h(qA[0])
-    qc.barrier()
+    if initial_hadamard:
+        qc.h(qA[0])
+        qc.barrier()
     qc.measure(qA, cA0)
     qc.barrier()
     for i in range(0, cnot_count):
@@ -60,7 +61,7 @@ else:
 
 for count in range(0, 11):
     circuit = make_circuit(quantum_control=True, simplify=False,
-            extra_measure=False, cnot_count=count)
+            extra_measure=False, cnot_count=count, initial_hadamard=False)
     #circuit = cnot_test(2, True)
     print("Running circuit:")
     print(circuit.draw('text'))
