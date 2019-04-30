@@ -1,7 +1,10 @@
-from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, IBMQ, Aer
+from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, IBMQ, Aer, compile
 import qiskit
+import json
+import time
 
-sim = False
+name = 'TwoTargets'
+sim = True
 shots = 8192
 
 def cnot_test(quantity, flip):
@@ -21,6 +24,44 @@ def cnot_test(quantity, flip):
     qc.measure(qA, cA)
     qc.measure(qB, cB)
     return qc
+
+def multi_qubit(B_CNOT, C_CNOT, D_CNOT):
+    A = QuantumRegister(1)
+    B = QuantumRegister(1)
+    C = QuantumRegister(1)
+    D = QuantumRegister(1)
+
+    a = ClassicalRegister(1)
+    b = ClassicalRegister(1)
+    c = ClassicalRegister(1)
+    d = ClassicalRegister(1)
+
+    qc = QuantumCircuit(A, B, C, D, a, b, c, d)
+
+    qc.h(A[0])
+    qc.barrier()
+
+    qc.measure(A, a)
+    qc.barrier()
+
+    for i in range(0, B_CNOT):
+        qc.cx(A[0], B[0])
+        qc.barrier()
+    for i in range(0, C_CNOT):
+        qc.cx(A[0], C[0])
+        qc.barrier()
+    for i in range(0, D_CNOT):
+        qc.cx(A[0], D[0])
+        qc.barrier()
+
+    qc.measure(B, b)
+    qc.barrier()
+    qc.measure(C, c)
+    qc.barrier()
+    qc.measure(D, d)
+
+    return qc
+
 
 def make_circuit(quantum_control=False, simplify=False,
         extra_measure=False, cnot_count=1, hadamard_count=1):
@@ -59,17 +100,40 @@ if sim:
 else:
     backend = IBMQ.get_backend('ibmqx4')
 
-for count in range(0, 11):
-    circuit = make_circuit(quantum_control=True, simplify=False,
-            extra_measure=False, cnot_count=count, hadamard_count=2)
-    #circuit = cnot_test(2, True)
-    print("Running circuit:")
-    print(circuit.draw('text'))
-    print("for", shots, "shots on backend", backend, "with result:");
+n = 3
+output = {"runs": []}
+for i in range(0, n):
+    for j in range(0, n):
+        for k in range(0, n):
+            print('starting circuit:', i, j, k)
+            run = {}
+            circuit = multi_qubit(i, j, k)
+            qobj = compile(circuit, backend=backend, shots=shots, memory=True)
+            compiled = qobj.as_dict()['experiments'][0]['header']['compiled_circuit_qasm']
+            orig = circuit.qasm()
+            run['original circuit'] = orig
+            run['compiled circuit'] = compiled
 
-    job = qiskit.execute(circuit, backend=backend, shots=shots)
+            run['B CNOTS'] = i
+            run['C CNOTS'] = j
+            run['D CNOTS'] = k
 
-    result = job.result()
+            run['submit timestamp'] = time.time()
+            job = backend.run(qobj)
+            result = job.result()
+            run['complete timestamp'] = time.time()
 
-    print(result.get_counts(circuit))
-    print("\n")
+            run['memory'] = result.get_memory()
+            run['counts'] = result.get_counts()
+            run['backend'] = str(backend)
+            run['shots'] = shots
+
+            output['runs'].append(run)
+
+output['qiskit version'] = qiskit.__version__
+with open('mwi.py', 'r') as this_file:
+    output['python source'] = this_file.read()
+
+with open(name + '.json', 'w') as out_file:
+    json.dump(output, out_file, sort_keys=True, separators=(',',':'), allow_nan=False)
+    out_file.write('\n')
