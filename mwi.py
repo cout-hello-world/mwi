@@ -1,4 +1,4 @@
-from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, IBMQ, Aer, compile
+from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, IBMQ, Aer
 import qiskit
 import json
 import time
@@ -94,11 +94,11 @@ def make_circuit(quantum_control=False, simplify=False,
     qc.measure(qB, cB)
     return qc
 
-IBMQ.load_accounts()
 if sim:
     backend = Aer.get_backend('qasm_simulator')
 else:
-    backend = IBMQ.get_backend('ibmqx4')
+    IBMQ.load_account()
+    backend = IBMQ.get_provider.get_backend('ibmqx4')
 
 n = 3
 output = {"runs": []}
@@ -108,8 +108,8 @@ for i in range(0, n):
             print('starting circuit:', i, j, k)
             run = {}
             circuit = multi_qubit(i, j, k)
-            qobj = compile(circuit, backend=backend, shots=shots, memory=True)
-            compiled = qobj.as_dict()['experiments'][0]['header']['compiled_circuit_qasm']
+            transpiled = qiskit.compiler.transpile(circuit, backend=backend)
+            compiled = transpiled.qasm()
             orig = circuit.qasm()
             run['original circuit'] = orig
             run['compiled circuit'] = compiled
@@ -119,7 +119,7 @@ for i in range(0, n):
             run['D CNOTS'] = k
 
             run['submit timestamp'] = time.time()
-            job = backend.run(qobj)
+            job = qiskit.execute(transpiled, backend=backend, shots=shots, memory=True)
             result = job.result()
             run['complete timestamp'] = time.time()
 
