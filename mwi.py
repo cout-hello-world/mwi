@@ -1,11 +1,19 @@
 from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, IBMQ, Aer
+from qiskit.providers.aqt import AQT
 import qiskit
 import json
 import time
+import sys
 
 name = 'TwoTargets'
-sim = True
-shots = 8192
+keyfile = 'aqt_key.txt'
+aqt = True
+sim = False
+shots = 200
+
+def get_key(name):
+    with open(name, 'r') as f:
+        return f.readline().rstrip()
 
 def cnot_test(quantity, flip):
     qA = QuantumRegister(1)
@@ -96,11 +104,15 @@ def make_circuit(quantum_control=False, simplify=False,
 
 if sim:
     backend = Aer.get_backend('qasm_simulator')
+elif aqt:
+    token = get_key(keyfile)
+    aqt = AQT.enable_account(token)
+    backend = aqt.get_backend('aqt_qasm_simulator')
 else:
     IBMQ.load_account()
     backend = IBMQ.get_provider.get_backend('ibmqx4')
 
-n = 3
+n = 2
 output = {"runs": []}
 for i in range(0, n):
     for j in range(0, n):
@@ -119,11 +131,11 @@ for i in range(0, n):
             run['D CNOTS'] = k
 
             run['submit timestamp'] = time.time()
-            job = qiskit.execute(transpiled, backend=backend, shots=shots, memory=True)
+            job = qiskit.execute(transpiled, backend=backend, shots=shots, memory=False)
             result = job.result()
             run['complete timestamp'] = time.time()
 
-            run['memory'] = result.get_memory()
+            # run['memory'] = result.get_memory()
             run['counts'] = result.get_counts()
             run['backend'] = str(backend)
             run['shots'] = shots
@@ -131,7 +143,7 @@ for i in range(0, n):
             output['runs'].append(run)
 
 output['qiskit version'] = qiskit.__version__
-with open('mwi.py', 'r') as this_file:
+with open(__file__, 'r') as this_file:
     output['python source'] = this_file.read()
 
 with open(name + '.json', 'w') as out_file:
